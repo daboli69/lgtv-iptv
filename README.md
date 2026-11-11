@@ -9,18 +9,24 @@ A TV app for the free US channels listed by [iptv-org](https://github.com/iptv-o
 | `app/` | The TV app. Plain HTML, CSS and ES5 JavaScript, because webOS 4 runs a Chrome 53 engine. |
 | `tools/build-lineup.mjs` | Builds the US channel lineup (`guide/lineup.json`) and its schedules (`guide/guide.json`). |
 | `tools/classify.mjs` | The folder rules: which channel goes in Sports › Football, Local News › Ohio › Cleveland, and so on. |
-| `tools/serve-guide.mjs` | Serves the lineup and guide to the TV over your home network. |
-| `start-guide.cmd` | Runs the builder, then the server. Double-click it. |
-| `dist/` | The packaged app (`.ipk`). |
+| `tools/serve-guide.mjs` | Serves the lineup and guide from your PC, as a backup to the online copy. |
+| `.github/workflows/build-guide.yml` | Rebuilds the lineup and guide every 3 hours and publishes them on GitHub Pages. |
+| `start-guide.cmd` | Builds and serves from your PC. Only needed if the online copy is down. |
+| `dist/` | The packaged app (`.ipk`, not in git). |
 
 ## Every day
 
-1. Double-click `start-guide.cmd` on the PC and leave the window open. The first build takes a few minutes because it tests every stream; rebuilds within two hours are quicker.
-2. Open **IPTV Guide** on the TV.
+Open **IPTV Guide** on the TV. Nothing needs to run at home.
 
-The guide covers two days. Run `start-guide.cmd` again at least every other day.
+A GitHub Actions job rebuilds the channel list and guide every 3 hours and publishes them at <https://daboli69.github.io/lgtv-iptv/>. The TV reads `lineup.json` and `guide-window.json` from there (the next 15 hours of schedules).
 
-If the PC is off, the app still opens, but it falls back to iptv-org's plain US playlist without folders or schedules.
+The app looks in three places, in order:
+
+1. The online copy on GitHub Pages.
+2. Your PC, if `start-guide.cmd` is running (Settings › PC address).
+3. iptv-org's plain US playlist, without folders, so there is always something to watch.
+
+To rebuild right away, open the repo's **Actions** tab, pick **Build lineup and guide** and press **Run workflow**, or run `gh workflow run build-guide.yml -R daboli69/lgtv-iptv`. GitHub pauses scheduled jobs in repos with no activity for 60 days; the Actions tab shows a button to turn it back on.
 
 ## Which channels are in
 
@@ -30,7 +36,7 @@ If the PC is off, the app still opens, but it falls back to iptv-org's plain US 
 
 ## Folders
 
-Sports (Football and Basketball first), National News (Top Networks, Business & Finance, Weather, More News), Local News by state and city, Movies, TV Shows, Kids & Family, Music, Documentary & Science, Lifestyle, En Español, Religious, Community & Government, and More Channels. Change the rules in `tools/classify.mjs` and run `start-guide.cmd` again.
+Sports (Football and Basketball first), National News (Top Networks, Business & Finance, Weather, More News), Local News by state and city, Movies, TV Shows, Kids & Family, Music, Documentary & Science, Lifestyle, En Español, Religious, Community & Government, and More Channels. Change the rules in `tools/classify.mjs` and push; the job rebuilds on every push to `tools/`.
 
 ## Where the schedules come from
 
@@ -66,7 +72,7 @@ Developer Mode doesn't let apps change the home bar order, so do this once on th
 Developer Mode switches off after about 50 hours unless you press **Extend** in the Developer Mode app, and the app is removed when it runs out. To put it back:
 
 ```bash
-ares-install.cmd -d lgtv dist\com.home.iptvguide_1.1.0_all.ipk
+ares-install.cmd -d lgtv dist\com.home.iptvguide_1.2.0_all.ipk
 ```
 
 After changing anything in `app/`, package it again first with `ares-package.cmd app -o dist`.
@@ -75,4 +81,5 @@ After changing anything in `app/`, package it again first with `ares-package.cmd
 
 - Free streams come and go. Live NFL and NBA games aren't on free legal streams, so Football and Basketball hold NFL Channel, NFL Network and NBA TV (shows, highlights and replays).
 - Local News only covers stations that stream for free; iptv-org has none for Columbus right now.
-- If the PC's address changes, update it under Settings (Yellow) › PC address.
+- The online build runs from GitHub's servers, so a few streams that block data centres may be left out there even though they play at home. The PC build tests from your own connection.
+- The Barlow fonts in `app/fonts` are under the SIL Open Font License.
