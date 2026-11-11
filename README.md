@@ -56,7 +56,19 @@ Sports (Football and Basketball first), National News (Top Networks, Business & 
 | Left/Right | | Earlier or later programmes | Show what's on |
 | CH +/- | Page | Page through channels | Change channel |
 | Green | | Add or remove a favorite | Add or remove a favorite |
+| Blue | Search | Search | Search |
 | Yellow | Settings | Settings | |
+
+## Search
+
+Press **Blue**, or pick **Search** at the top of the home screen, and start typing. Results update as you type, with shows on now listed first.
+
+- Word beginnings work: `dan`, `cin`, `price is`.
+- Initials work: `snl`, `dwts`.
+- Small typos are forgiven: `jepardy`, `dtws`.
+- Games are found by team name, since the guide lists the teams in each game's details.
+
+Press **Down** to move into the results and **OK** to pick one. A show on now, or a channel, starts playing; a show later today opens the guide at its start time. **Back** returns to your results. Search covers what the guide holds: the next 15 hours.
 
 ## Putting the app first on the home bar
 
@@ -72,7 +84,7 @@ Developer Mode doesn't let apps change the home bar order, so do this once on th
 Developer Mode switches off after about 50 hours unless you press **Extend** in the Developer Mode app, and the app is removed when it runs out. To put it back:
 
 ```bash
-ares-install.cmd -d lgtv dist\com.home.iptvguide_1.3.0_all.ipk
+ares-install.cmd -d lgtv dist\com.home.iptvguide_1.4.0_all.ipk
 ```
 
 After changing anything in `app/`, package it again first with `ares-package.cmd app -o dist`.

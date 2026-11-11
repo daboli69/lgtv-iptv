@@ -138,6 +138,7 @@
         S.guide = g;
         S.guideState = 'ok';
       } catch (e) { S.guideState = 'error'; }
+      indexSearch();
       redraw();
     });
   }
@@ -150,7 +151,119 @@
     S.screen = 'home';
     setScreen();
     drawHome();
+    indexSearch(); // channel names are searchable before the guide arrives
     loadGuide();
+  }
+
+  /* ---------- search ---------- */
+
+  var searchTimer = null;
+  S.results = [];
+  S.rSel = -1; // -1: the text field has focus
+
+  function indexSearch() { if (window.IPTVSearch) window.IPTVSearch.build(S.channels, progsFor); }
+
+  function openSearch() {
+    S.screen = 'search';
+    setScreen();
+    drawSearch();
+    focusSearchField();
+  }
+
+  function focusSearchField() {
+    S.rSel = -1;
+    drawSearch();
+    $('sInput').focus(); // brings up the TV's on-screen keyboard
+  }
+
+  function runSearch() {
+    var q = $('sInput').value;
+    S.results = q.trim() ? window.IPTVSearch.query(q) : [];
+    if (S.rSel >= S.results.length) S.rSel = S.results.length - 1;
+    drawSearch();
+  }
+
+  $('sInput').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 150);
+  });
+
+  function dayTime(t) {
+    var d = new Date(t), today = new Date();
+    var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    if (d.toDateString() === today.toDateString()) return hhmm(t);
+    if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow ' + hhmm(t);
+    return d.toDateString().slice(0, 3) + ' ' + hhmm(t);
+  }
+
+  function drawSearch() {
+    var q = $('sInput').value.trim(), rs = S.results, html = '';
+    $('sMeta').textContent = !q ? (S.guideState === 'loading' ? 'Loading the guide, channel names work already.' : 'Shows on now are listed first. Initials work too, like "snl".')
+      : rs.length ? rs.length + (rs.length === 1 ? ' match' : ' matches') + ' · press Down to pick one'
+      : 'Nothing on in the next 15 hours matches "' + q + '". Try fewer letters or a channel name.';
+    var sel = Math.max(0, S.rSel), start = Math.max(0, Math.min(sel - 3, rs.length - 7));
+    for (var i = start; i < Math.min(rs.length, start + 7); i++) {
+      var r = rs[i], c = S.channels[r.key], now = r.air && r.air[0] <= Date.now(), sub, right;
+      if (r.type === 'channel') { sub = 'Channel ' + c.num + ' · ' + (nowLine(c) || c.kind); right = 'Channel'; }
+      else {
+        sub = (now ? 'On now on ' + c.name + ', until ' + hhmm(r.air[1]) : 'On ' + c.name) + (r.air[3] ? ' · ' + r.air[3] : '');
+        right = now ? 'Now' : dayTime(r.air[0]);
+      }
+      html += '<li data-i="' + i + '" class="' + (i === S.rSel ? 'f' : '') + (now ? ' airing' : '') + '"><div class="n">' + esc(r.title) + '</div>' +
+        '<div class="s">' + esc(sub) + '</div><div class="c">' + esc(right) + '</div></li>';
+    }
+    $('sList').innerHTML = html;
+  }
+
+  // What happens when a result is picked: on now or a channel plays; later opens the guide there.
+  function pickResult(i) {
+    var r = S.results[i];
+    if (!r) return;
+    var seen = {}, keys = [];
+    S.results.forEach(function (x) { if (!seen[x.key]) { seen[x.key] = 1; keys.push(x.key); } });
+    $('sInput').blur();
+    if (r.type === 'channel' || r.air[0] <= Date.now()) {
+      S.list = keys.map(function (k) { return S.channels[k]; });
+      S.row = keys.indexOf(r.key);
+      tune(S.channels[r.key]);
+      return goFull();
+    }
+    openGuide('Search: ' + $('sInput').value.trim(), keys);
+    S.from = 'search';
+    S.row = keys.indexOf(r.key);
+    S.t = r.air[0];
+    keepInWindow();
+    setScreen();
+    drawGuide();
+  }
+
+  $('sList').addEventListener('click', function (e) { // Magic Remote pointer
+    var li = e.target;
+    while (li && li.tagName !== 'LI') li = li.parentNode;
+    if (li) pickResult(+li.getAttribute('data-i'));
+  });
+
+  function searchKey(k, back) {
+    var inField = document.activeElement === $('sInput');
+    if (inField) {
+      if (k === KEY.DOWN || k === KEY.OK) { if (S.results.length) { $('sInput').blur(); S.rSel = 0; drawSearch(); } return true; }
+      if (back) { $('sInput').blur(); leaveSearch(); return true; }
+      return false; // typing and cursor keys stay with the text field
+    }
+    if (k === KEY.UP) { if (S.rSel <= 0) focusSearchField(); else { S.rSel--; drawSearch(); } }
+    else if (k === KEY.DOWN) { S.rSel = Math.min(S.results.length - 1, S.rSel + 1); drawSearch(); }
+    else if (k === KEY.OK) pickResult(S.rSel);
+    else if (k === KEY.GREEN && S.results[S.rSel]) toggleFav(S.channels[S.results[S.rSel].key]);
+    else if (back) leaveSearch();
+    else if (k === KEY.BLUE) focusSearchField();
+    else return false;
+    return true;
+  }
+
+  function leaveSearch() {
+    S.screen = 'home';
+    setScreen();
+    drawHome();
   }
 
   /* ---------- folders ---------- */
@@ -176,6 +289,7 @@
   function homeRows() {
     var node = S.stack[S.stack.length - 1], rows = [];
     if (S.stack.length === 1) {
+      rows.push({ type: 'search', name: 'Search', sub: 'Find a show, game or channel by typing part of its name' });
       if (S.tuned) rows.push({ type: 'resume', name: 'Back to ' + S.tuned.name, sub: nowLine(S.tuned) });
       var fav = favNode();
       rows.push({ type: 'folder', node: fav, name: 'Favorites', sub: fav.keys.length ? '' : 'Press Green on any channel to add it here', count: fav.keys.length });
@@ -242,6 +356,7 @@
   function homeOK() {
     var rows = homeRows(), r = rows[S.sel[S.stack.length - 1]];
     if (!r) return;
+    if (r.type === 'search') return openSearch();
     if (r.type === 'resume') return goFull();
     var node = r.node;
     if (!node.virtual && node.folders && node.folders.length) {
@@ -307,6 +422,7 @@
   function openGuide(name, keys) {
     S.list = keys.map(function (k) { return S.channels[k]; });
     S.listName = name;
+    S.from = '';
     S.row = 0; S.top = 0;
     if (S.tuned) for (var i = 0; i < S.list.length; i++) if (S.list[i].key === S.tuned.key) { S.row = i; break; }
     S.t = Date.now();
@@ -334,14 +450,17 @@
     var b = document.body.classList;
     b.toggle('homeMode', S.screen === 'home');
     b.toggle('guideMode', S.screen === 'guide');
+    b.toggle('searchMode', S.screen === 'search');
     b.toggle('full', S.full);
-    $('lBack').textContent = S.screen === 'guide' ? 'Back: folders' : S.stack.length > 1 ? 'Back: up a folder' : 'Back: exit';
+    $('lBack').textContent = S.screen === 'guide' ? (S.from === 'search' ? 'Back: search results' : 'Back: folders')
+      : S.screen === 'search' ? 'Back: folders' : S.stack.length > 1 ? 'Back: up a folder' : 'Back: exit';
   }
 
   function redraw() {
     if (S.overlay) return;
     if (S.screen === 'home' && S.tree) drawHome();
     if (S.screen === 'guide') drawGuide();
+    if (S.screen === 'search') drawSearch();
   }
 
   function liveCell(c, sel) {
@@ -595,6 +714,7 @@
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode, back = k === KEY.BACK || k === KEY.ESC || k === KEY.BKSP;
     if (S.overlay && S.overlay.input) return; // the text field handles its own keys
+    if (document.activeElement === $('sInput')) back = k === KEY.BACK || k === KEY.ESC; // Backspace deletes letters there
     var handled = true;
 
     if (S.overlay) {
@@ -611,7 +731,10 @@
       else if (k === KEY.OK || k === KEY.INFO || k === KEY.LEFT || k === KEY.RIGHT) showBanner();
       else if (back) leaveFull();
       else if (k === KEY.GREEN) toggleFav(S.tuned);
+      else if (k === KEY.BLUE) { S.full = false; openSearch(); }
       else handled = false;
+    } else if (S.screen === 'search') {
+      handled = searchKey(k, back);
     } else if (S.screen === 'home') {
       var lvl = S.stack.length - 1, n = homeRows().length;
       if (k === KEY.UP) { S.sel[lvl] = Math.max(0, S.sel[lvl] - 1); drawHome(); }
@@ -621,7 +744,8 @@
       else if (k === KEY.OK || k === KEY.RIGHT) homeOK();
       else if (k === KEY.LEFT) { if (S.stack.length > 1) homeBack(); }
       else if (back) homeBack();
-      else if (k === KEY.YELLOW || k === KEY.BLUE) openSettings();
+      else if (k === KEY.BLUE) openSearch();
+      else if (k === KEY.YELLOW) openSettings();
       else handled = false;
     } else {
       if (k === KEY.UP) moveRow(-1);
@@ -634,9 +758,11 @@
         var c = S.list[S.row];
         if (c) { if (!S.tuned || S.tuned.key !== c.key || !video.src) tune(c); goFull(); }
       }
+      else if (back && S.from === 'search') { S.screen = 'search'; setScreen(); drawSearch(); }
       else if (back || k === KEY.RED) { S.screen = 'home'; setScreen(); drawHome(); }
       else if (k === KEY.GREEN) toggleFav(S.list[S.row]);
-      else if (k === KEY.YELLOW || k === KEY.BLUE) openSettings();
+      else if (k === KEY.BLUE) openSearch();
+      else if (k === KEY.YELLOW) openSettings();
       else handled = false;
     }
     if (handled) e.preventDefault();

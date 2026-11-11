@@ -26,8 +26,19 @@ body { color: var(--ink); font: 400 26px/1.3 var(--text); cursor: default; }
 .meta { margin-top: 16px; color: var(--dim); font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Screens: one visible at a time. */
-#home, #guide { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; }
-body.homeMode #home, body.guideMode #guide { display: block; }
+#home, #guide, #search { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; }
+body.homeMode #home, body.guideMode #guide, body.searchMode #search { display: block; }
+
+/* Search: the field sits at the top so the TV's on-screen keyboard never covers it. */
+.srLabel { display: block; font: 600 28px var(--cond); color: var(--dim); margin-bottom: 12px; }
+#sInput { width: 1100px; height: 96px; padding: 0 28px; font: 700 56px var(--cond); color: var(--ink); background: var(--row); border: 3px solid #59606a; }
+#sInput:focus { outline: 4px solid var(--focus); outline-offset: 0; border-color: var(--focus); }
+#sInput::-webkit-input-placeholder { color: #8b929b; font-weight: 600; }
+#sInput::placeholder { color: #8b929b; font-weight: 600; }
+.folders.results { top: 300px; }
+.results .c { font-size: 28px; }
+.results li.airing .c { color: var(--focus); }
+.results li.f.airing .c { color: var(--focusInk); }
 
 /* Home: the folder list on the left, the live picture on the right. */
 .homeHead { position: absolute; left: 96px; top: 56px; width: 1100px; }
@@ -86,7 +97,7 @@ body.playing #video { visibility: visible; }
 .legend { position: absolute; left: 96px; right: 96px; bottom: 28px; height: 36px; font-size: 22px; color: var(--dim); white-space: nowrap; }
 .legend span { margin-right: 40px; }
 .k { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 10px; vertical-align: -1px; }
-.k.green { background: #2fbf71; } .k.yellow { background: #f5c518; }
+.k.green { background: #2fbf71; } .k.yellow { background: #f5c518; } .k.blue { background: #3b82f6; }
 .notice { position: absolute; right: 0; top: 0; margin: 0; color: var(--ink); }
 
 /* Watching full screen. */
