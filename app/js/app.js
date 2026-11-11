@@ -391,6 +391,7 @@
     if (fc.place) extra.push(fc.place);
     if (fc.geo) extra.push('may be blocked outside its region');
     if (fc.part) extra.push('not on air all day');
+    if (fc.smooth === false) extra.push('single-quality relay, may pause');
     if (fc.note) extra.push(fc.note);
     if (fp) {
       $('pTitle').textContent = fp[2];
@@ -409,8 +410,10 @@
     var nowSlot = Math.floor(Date.now() / SLOT) * SLOT;
     if (S.winStart < nowSlot) S.winStart = nowSlot;
     if (S.t < Date.now()) S.t = Date.now();
-    redraw();
-    if (S.full && $('banner').className.indexOf('show') >= 0) fillBanner();
+    // While watching full screen the guide is hidden; skip rebuilding it so the TV's
+    // processor stays on the video.
+    if (!S.full) redraw();
+    else if ($('banner').className.indexOf('show') >= 0) fillBanner();
   }
 
   /* ---------- playback ---------- */
@@ -421,15 +424,16 @@
     el.className = 'playState' + (title ? ' show' : '');
   }
 
-  function tune(c, idx) {
+  function tune(c, idx, retry) {
     if (!c) return;
     S.tuned = c;
     S.urlIdx = idx || 0;
+    S.retried = !!retry;
     store.set('lastKey', c.key);
     clearTimeout(S.stallTimer);
     document.body.classList.add('playing');
     $('previewNote').style.display = 'none';
-    playState('Tuning ' + c.name, S.urlIdx ? 'Trying backup stream ' + S.urlIdx : '');
+    playState(retry ? 'Reconnecting ' + c.name : 'Tuning ' + c.name, S.urlIdx ? 'Trying backup stream ' + S.urlIdx : '');
     video.src = c.urls[S.urlIdx];
     var pr = video.play();
     if (pr && pr.catch) pr.catch(function () { /* the error event reports failures */ });
@@ -437,19 +441,29 @@
     drawWatching();
   }
 
-  // Try the channel's next stream before giving up.
-  function failed(why) {
+  // A stall that started mid-show is usually a brief hiccup at the source: reconnect to the
+  // same stream once, since the backups are ranked lower. Then try the next stream.
+  function failed(why, midStream) {
     clearTimeout(S.stallTimer);
     var c = S.tuned;
+    if (c && midStream && !S.retried) return tune(c, S.urlIdx, true);
     if (c && S.urlIdx + 1 < c.urls.length) return tune(c, S.urlIdx + 1);
     playState((c ? c.name : 'This channel') + ' is not playing',
       why + ' Free streams sometimes go offline. Press CH +/- for the next channel, or Back for the guide.');
   }
 
-  video.addEventListener('playing', function () { clearTimeout(S.stallTimer); playState('', ''); });
+  video.addEventListener('playing', function () {
+    clearTimeout(S.stallTimer);
+    playState('', '');
+    S.played = true;
+    clearTimeout(S.retryReset);
+    S.retryReset = setTimeout(function () { S.retried = false; }, 60000); // a minute of good playback earns another retry
+  });
+  video.addEventListener('loadstart', function () { S.played = false; });
   video.addEventListener('waiting', function () {
     clearTimeout(S.stallTimer);
-    S.stallTimer = setTimeout(function () { failed('The stream stopped sending video.'); }, STALL_MS);
+    var mid = S.played;
+    S.stallTimer = setTimeout(function () { failed('The stream stopped sending video.', mid); }, mid ? 10000 : STALL_MS);
   });
   video.addEventListener('error', function () { failed('The stream could not be opened.'); });
 

@@ -149,27 +149,83 @@ function buildChannels(d) {
   return [...out.values()]
 }
 
+// Reads up to `limit` bytes of a URL and returns how fast they arrived.
+async function speedTest(url, limit) {
+  const t = Date.now()
+  const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(15000) })
+  if (!res.ok || !res.body) return 0
+  let bytes = 0
+  const reader = res.body.getReader()
+  while (bytes < limit) {
+    const { done, value } = await reader.read()
+    if (done) break
+    bytes += value.length
+  }
+  reader.cancel().catch(() => {})
+  return bytes < 50000 ? 0 : bytes * 8 / Math.max(1, Date.now() - t) // kbit/s
+}
+
+// Opens a stream like the TV would: playlist, quality levels, and a timed chunk of
+// the newest video segment. headroom = download speed / bitrate needed to play.
+async function measure(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000) })
+  const body = res.ok ? await res.text() : ''
+  if (!/#EXTM3U/.test(body)) return { ok: /^\s*<\?xml|<MPD/i.test(body), levels: 0, headroom: 0 }
+  let media = { url: res.url, body }, levels = 1, need = 0
+  if (/#EXT-X-STREAM-INF/.test(body)) {
+    const lines = body.split(/\r?\n/), vars = []
+    lines.forEach((l, i) => { if (l.startsWith('#EXT-X-STREAM-INF')) vars.push({ bw: +(l.match(/BANDWIDTH=(\d+)/) || [])[1] || 0, uri: lines[i + 1]?.trim() }) })
+    levels = vars.length
+    vars.sort((a, b) => b.bw - a.bw)
+    const top = vars.find(v => v.uri)
+    if (!top) return { ok: true, levels, headroom: 0 }
+    need = top.bw / 1000
+    const r = await fetch(new URL(top.uri, res.url), { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000) })
+    media = { url: r.url, body: await r.text() }
+  }
+  const segs = media.body.split(/\r?\n/).filter(l => l && !l.startsWith('#'))
+  if (!segs.length) return { ok: true, levels, headroom: 0 }
+  const kbps = await speedTest(new URL(segs[segs.length - 1], media.url).href, 600000)
+  if (!need) need = 1500 // no declared bitrate: assume a typical 720p stream
+  return { ok: true, levels, headroom: +(kbps / need).toFixed(1) }
+}
+
+// A stream is smooth when it adapts to the connection (several quality levels) or its
+// server sends video at least 3x faster than it plays. Below 1.2x it cannot keep up.
+const SLOW = 1.2
+const streamScore = s => (s.levels > 1 ? 10 : 0) + Math.min(s.headroom || 0, 10) - (s.labels.includes('Geo-blocked') ? 5 : 0)
+
 async function checkStreams(entries) {
   const all = entries.flatMap(e => e.streams.map(s => ({ e, s })))
   log(`Testing ${all.length} streams (Ctrl+C to stop; --no-check skips this)`)
-  // Results stay valid for two hours, so a quick rebuild doesn't retest everything.
-  const file = join(CACHE, 'stream-checks.json')
+  // Results stay valid for 12 hours, so each rebuild only retests a share of the streams.
+  const file = join(CACHE, 'stream-tests.json')
   let known = {}
   try { known = JSON.parse(await readFile(file, 'utf8')) } catch { /* first run */ }
   let done = 0
-  await pool(all, 40, async ({ s }) => {
+  await pool(all, 12, async ({ s }) => {
     const k = known[s.url]
-    if (k && Date.now() - k.t < 2 * 3600e3) { s.ok = k.ok; return }
-    try {
-      const res = await fetch(s.url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000) })
-      const body = res.ok ? (await res.text()).slice(0, 2000) : ''
-      s.ok = /#EXTM3U/.test(body) || /^\s*<\?xml|<MPD/i.test(body)
-    } catch { s.ok = false }
-    known[s.url] = { t: Date.now(), ok: s.ok }
+    if (k && Date.now() - k.t < 12 * 3600e3) Object.assign(s, k.r)
+    else {
+      let r
+      try { r = await measure(s.url) } catch { r = { ok: false, levels: 0, headroom: 0 } }
+      Object.assign(s, r)
+      known[s.url] = { t: Date.now(), r }
+    }
     if (++done % 250 === 0) log(`  ${done}/${all.length}`)
   })
   await writeFile(file, JSON.stringify(known))
-  for (const e of entries) e.streams = e.streams.filter(s => s.ok)
+  let dropped = 0
+  for (const e of entries) {
+    const ok = e.streams.filter(s => s.ok)
+    // Streams too slow to keep up only stay when nothing better exists for the channel.
+    const fast = ok.filter(s => s.levels > 1 || s.headroom >= SLOW)
+    dropped += ok.length - (fast.length ? fast.length : ok.length)
+    e.streams = (fast.length ? fast : ok).sort((a, b) => streamScore(b) - streamScore(a))
+    const best = e.streams[0]
+    e.smooth = !!best && (best.levels > 1 || best.headroom >= 3)
+  }
+  log(`  ${dropped} streams dropped as too slow to play smoothly`)
   return entries.filter(e => e.streams.length)
 }
 
@@ -383,6 +439,7 @@ async function main() {
       urls: e.streams.map(s => s.url),
       geo: e.streams.every(s => s.labels.includes('Geo-blocked')),
       part: e.streams.every(s => s.labels.includes('Not 24/7')),
+      smooth: e.smooth !== false,
       place: e.place ? `${e.place.city}, ${e.place.state}` : '',
       kind: e.paths.map(p => p.join(' > ')).join(' · '),
       about: describe({ ch: e.ch, local: e.local, place: e.place, folder }),

@@ -72,7 +72,7 @@ Developer Mode doesn't let apps change the home bar order, so do this once on th
 Developer Mode switches off after about 50 hours unless you press **Extend** in the Developer Mode app, and the app is removed when it runs out. To put it back:
 
 ```bash
-ares-install.cmd -d lgtv dist\com.home.iptvguide_1.2.0_all.ipk
+ares-install.cmd -d lgtv dist\com.home.iptvguide_1.3.0_all.ipk
 ```
 
 After changing anything in `app/`, package it again first with `ares-package.cmd app -o dist`.
