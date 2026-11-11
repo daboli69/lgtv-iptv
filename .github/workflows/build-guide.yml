@@ -1,0 +1,57 @@
+# Rebuilds the channel lineup and guide every 3 hours and publishes them on
+# GitHub Pages, so the TV app works without a PC running at home.
+name: Build lineup and guide
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/**', '.github/workflows/build-guide.yml']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Guide pages and stream checks from earlier runs, so each run fetches less.
+      - uses: actions/cache@v4
+        with:
+          path: guide/cache
+          key: guide-cache-${{ github.run_id }}
+          restore-keys: guide-cache-
+
+      - name: Build
+        run: node tools/build-lineup.mjs
+
+      - name: Collect the files the TV reads
+        run: |
+          mkdir -p site
+          cp guide/lineup.json guide/guide-window.json site/
+          echo '<!doctype html><title>IPTV Guide data</title><p>Data for the IPTV Guide TV app: <a href="lineup.json">lineup.json</a>, <a href="guide-window.json">guide-window.json</a>.</p>' > site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

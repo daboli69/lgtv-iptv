@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>IPTV Guide</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="stage" id="stage">
+  <main id="home" aria-label="Channel folders">
+    <header class="homeHead">
+      <h1 id="hTitle">Channels</h1>
+      <div class="meta" id="hMeta"></div>
+    </header>
+    <ul class="folders" id="hList"></ul>
+    <section class="watching" aria-label="Now playing">
+      <div class="wLabel" id="wLabel"></div>
+      <div class="wName" id="wName"></div>
+      <div class="wNow" id="wNow"></div>
+    </section>
+  </main>
+
+  <main id="guide" aria-label="Programme guide">
+    <header class="top">
+      <div class="now" aria-live="polite">
+        <h1 id="pTitle"></h1>
+        <div class="meta" id="pMeta"></div>
+        <p class="desc" id="pDesc"></p>
+      </div>
+    </header>
+    <section class="grid">
+      <div class="crumb" id="crumb"></div>
+      <div class="times" id="times"></div>
+      <div class="rows" id="rows"></div>
+      <div class="nowline" id="nowline"></div>
+      <div class="state" id="state" role="status"></div>
+    </section>
+  </main>
+
+  <div class="preview" id="preview">
+    <div class="previewNote" id="previewNote">Pick a channel and press OK to watch.</div>
+  </div>
+  <video id="video" autoplay playsinline></video>
+  <div class="clock" id="clock"></div>
+
+  <footer class="legend" id="legend">
+    <span id="lBack"></span>
+    <span><i class="k green"></i>Favorite</span>
+    <span><i class="k yellow"></i>Settings</span>
+    <span class="notice" id="notice" role="status"></span>
+  </footer>
+
+  <div class="banner" id="banner" aria-live="polite">
+    <div class="bNum" id="bNum"></div>
+    <div class="bBody">
+      <div class="bName" id="bName"></div>
+      <div class="bNow" id="bNow"></div>
+      <div class="bNext" id="bNext"></div>
+      <div class="bar"><i id="bBar"></i></div>
+    </div>
+  </div>
+  <div class="playState" id="playState" role="status"></div>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="oTitle">
+    <div class="panel">
+      <h2 id="oTitle"></h2>
+      <ul id="oList"></ul>
+      <div class="oInput" id="oInputWrap">
+        <label for="oInput" id="oLabel">Address</label>
+        <input id="oInput" type="url" spellcheck="false" autocomplete="off">
+        <p class="oHelp" id="oHelp"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

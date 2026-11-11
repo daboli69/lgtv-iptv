@@ -1,0 +1,14 @@
+{
+  "id": "com.home.iptvguide",
+  "version": "1.1.0",
+  "vendor": "Home",
+  "type": "web",
+  "main": "index.html",
+  "title": "IPTV Guide",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#121417",
+  "iconColor": "#ff7a1a",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true
+}

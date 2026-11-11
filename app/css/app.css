@@ -1,0 +1,131 @@
+/* Broadcast grid. Barlow Condensed fits long titles into narrow time cells the way
+   broadcast lower-thirds do; Barlow for running text. Dark ground because the TV is
+   watched in a dim room. Orange marks the one focused thing. Written for the webOS 4
+   engine (Chromium 53): no CSS grid, no gap on flex. */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url(../fonts/BarlowCondensed-600.woff2) format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; src: url(../fonts/BarlowCondensed-700.woff2) format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 400; src: url(../fonts/Barlow-400.woff2) format('woff2'); }
+@font-face { font-family: 'Barlow'; font-weight: 500; src: url(../fonts/Barlow-500.woff2) format('woff2'); }
+
+:root {
+  --ground: #121417;
+  --row: #1b1e23;
+  --cell: #23272e;
+  --on: #2c323b;
+  --ink: #eef0f2;
+  --dim: #a7adb5;
+  --focus: #ff7a1a;
+  --focusInk: #111111;
+  --cond: 'Barlow Condensed', sans-serif;
+  --text: 'Barlow', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: var(--ground); overflow: hidden; }
+body { color: var(--ink); font: 400 26px/1.3 var(--text); cursor: default; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; }
+.meta { margin-top: 16px; color: var(--dim); font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Screens: one visible at a time. */
+#home, #guide { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: none; }
+body.homeMode #home, body.guideMode #guide { display: block; }
+
+/* Home: the folder list on the left, the live picture on the right. */
+.homeHead { position: absolute; left: 96px; top: 56px; width: 1100px; }
+.homeHead h1 { font: 700 84px/0.98 var(--cond); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folders { position: absolute; left: 96px; top: 240px; width: 1100px; list-style: none; }
+.folders li { position: relative; height: 84px; margin-bottom: 4px; padding: 10px 140px 0 28px; background: var(--row); }
+.folders .n { font: 600 40px/1.05 var(--cond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folders .s { font: 400 22px/1.3 var(--text); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folders .c { position: absolute; right: 28px; top: 22px; font: 600 32px var(--cond); color: var(--dim); }
+.folders li.f { background: var(--focus); color: var(--focusInk); }
+.folders li.f .s, .folders li.f .c { color: var(--focusInk); }
+.folders li.more { height: 40px; padding-top: 4px; background: none; color: var(--dim); font-size: 22px; }
+.watching { position: absolute; right: 96px; top: 380px; width: 520px; }
+.wLabel { font-size: 22px; color: var(--dim); }
+.wName { margin-top: 6px; font: 700 44px/1.05 var(--cond); }
+.wNow { margin-top: 10px; font-size: 26px; line-height: 1.4; max-height: 4.2em; overflow: hidden; }
+
+/* Guide header. */
+.top { position: relative; height: 400px; padding: 56px 96px 0; }
+.now { width: 1120px; }
+.now h1 { font: 700 84px/0.98 var(--cond); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desc { margin-top: 16px; max-width: 1000px; font-size: 26px; line-height: 1.4; max-height: 2.8em; overflow: hidden; }
+
+/* Shared picture box, top right, on both screens. */
+.preview, #video { position: absolute; right: 96px; top: 64px; width: 520px; height: 292px; background: #000; }
+.previewNote { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); padding: 0 32px; text-align: center; color: var(--dim); font-size: 24px; }
+#video { visibility: hidden; }
+body.playing #video { visibility: visible; }
+.clock { position: absolute; right: 96px; top: 16px; font: 600 30px var(--cond); color: var(--dim); }
+
+/* The guide grid. */
+.grid { position: relative; margin: 0 96px; height: 588px; }
+.crumb { position: absolute; left: 0; top: 0; width: 300px; font: 600 26px var(--cond); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.times { position: relative; height: 40px; margin-left: 304px; font: 600 26px var(--cond); color: var(--dim); }
+.times span { position: absolute; top: 0; }
+.rows { position: relative; }
+.r { position: relative; height: 88px; margin-bottom: 4px; }
+.ch { position: absolute; left: 0; top: 0; bottom: 0; width: 300px; background: var(--row); padding: 0 16px; display: flex; align-items: center; font: 600 28px/1.05 var(--cond); }
+.ch b { flex: 0 0 64px; color: var(--dim); font-weight: 600; }
+.ch span { overflow: hidden; max-height: 2.1em; }
+.ch .fav { color: var(--focus); margin-left: 8px; flex: 0 0 auto; }
+.track { position: absolute; left: 304px; right: 0; top: 0; bottom: 0; }
+.p { position: absolute; top: 0; bottom: 0; background: var(--cell); padding: 14px 20px; overflow: hidden; border-right: 4px solid var(--ground); }
+.p.on { background: var(--on); }
+.p .t { font: 600 30px/1.1 var(--cond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p .s { font: 400 22px/1.3 var(--text); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p.live { background: var(--on); }
+.p.f { background: var(--focus); color: var(--focusInk); box-shadow: inset 0 0 0 4px #ffffff; }
+.p.f .s, .p.f .t { color: var(--focusInk); }
+.r.sel .ch { background: #2a2f37; }
+.nowline { position: absolute; top: 40px; bottom: 0; width: 3px; background: var(--focus); display: none; }
+.state { position: absolute; left: 0; right: 0; top: 160px; text-align: center; font: 600 40px/1.25 var(--cond); padding: 0 160px; }
+.state small { display: block; margin-top: 16px; font: 400 26px/1.4 var(--text); color: var(--dim); }
+
+/* Footer: the remote's colour keys. The dots match the real buttons. */
+.legend { position: absolute; left: 96px; right: 96px; bottom: 28px; height: 36px; font-size: 22px; color: var(--dim); white-space: nowrap; }
+.legend span { margin-right: 40px; }
+.k { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 10px; vertical-align: -1px; }
+.k.green { background: #2fbf71; } .k.yellow { background: #f5c518; }
+.notice { position: absolute; right: 0; top: 0; margin: 0; color: var(--ink); }
+
+/* Watching full screen. */
+body.full #home, body.full #guide, body.full .preview, body.full .clock, body.full .legend { visibility: hidden; }
+body.full #video { left: 0; top: 0; right: auto; width: 1920px; height: 1080px; }
+
+.banner { position: absolute; left: 96px; right: 96px; bottom: 64px; background: rgba(18, 20, 23, 0.94); padding: 28px 40px; display: none; }
+body.full .banner.show { display: flex; }
+.bNum { flex: 0 0 120px; font: 700 64px/1 var(--cond); color: var(--dim); }
+.bBody { flex: 1 1 auto; min-width: 0; }
+.bName { font: 700 56px/1 var(--cond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bNow { margin-top: 12px; font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bNext { margin-top: 4px; font-size: 24px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { margin-top: 16px; height: 6px; background: #3a3f47; }
+.bar i { display: block; height: 100%; width: 0; background: var(--focus); }
+
+.playState { position: absolute; display: none; text-align: center; font: 600 28px/1.3 var(--cond); padding: 0 24px; }
+.playState small { display: block; margin-top: 8px; font: 400 20px/1.35 var(--text); color: var(--dim); }
+.playState.show { display: block; right: 96px; top: 64px; width: 520px; height: 292px; padding-top: 90px; background: #000; }
+body.full .playState.show { left: 0; right: 0; top: 440px; width: auto; height: auto; padding-top: 0; background: none; font-size: 44px; }
+body.full .playState.show small { font-size: 28px; }
+
+/* Settings overlay. */
+.overlay { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(10, 11, 13, 0.86); display: none; }
+.overlay.show { display: block; }
+.panel { position: absolute; left: 96px; top: 96px; bottom: 96px; width: 760px; background: var(--row); padding: 48px 0; }
+.panel h2 { font: 700 56px/1 var(--cond); padding: 0 48px 28px; }
+.panel ul { list-style: none; }
+.panel li { padding: 14px 48px; font: 600 34px/1.15 var(--cond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel li small { display: block; font: 400 22px/1.35 var(--text); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel li.f { background: var(--focus); color: var(--focusInk); }
+.panel li.f small { color: var(--focusInk); }
+.oInput { display: none; padding: 0 48px; }
+.oInput.show { display: block; }
+.oInput label { display: block; font-size: 24px; color: var(--dim); margin-bottom: 12px; }
+.oInput input { width: 100%; font: 400 28px var(--text); padding: 14px 16px; background: #0d0f12; color: var(--ink); border: 2px solid #59606a; }
+.oInput input:focus { outline: 4px solid var(--focus); outline-offset: 0; border-color: var(--focus); }
+.oHelp { margin-top: 16px; font-size: 22px; color: var(--dim); line-height: 1.4; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .p, .panel li, .folders li { transition: background-color 120ms ease; }
+}
